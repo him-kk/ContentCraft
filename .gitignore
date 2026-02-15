@@ -1,0 +1,15 @@
+# Environment variables
+.env
+.env.example
+backend/.env
+
+# Dependencies
+node_modules/
+
+# Logs
+logs/
+
+# Docker
+docker-compose.yml
+Dockerfile
+Dockerfile.worker

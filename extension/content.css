@@ -1,0 +1,430 @@
+/* ContentCraft AI Content Script Styles */
+
+/* Button in compose area */
+.contentcraft-ai-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 8px;
+}
+
+.contentcraft-ai-btn:hover {
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.contentcraft-ai-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Floating Action Button */
+.contentcraft-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+  transition: all 0.3s ease;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.contentcraft-fab:hover {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 6px 30px rgba(139, 92, 246, 0.5);
+}
+
+.contentcraft-fab svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Modal */
+.contentcraft-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.contentcraft-modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.contentcraft-modal-content {
+  position: relative;
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 480px;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  animation: contentcraft-modal-in 0.3s ease;
+}
+
+@keyframes contentcraft-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.contentcraft-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.contentcraft-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.contentcraft-modal-header h3::before {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  border-radius: 4px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M12 3L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3E%3Cpath d='M12 3L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.contentcraft-close-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.contentcraft-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.contentcraft-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  max-height: calc(80vh - 70px);
+}
+
+/* Tabs */
+.contentcraft-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.contentcraft-tab {
+  flex: 1;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.contentcraft-tab:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.contentcraft-tab.active {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+}
+
+/* Tab Content */
+.contentcraft-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.contentcraft-tab-content.hidden {
+  display: none;
+}
+
+.contentcraft-tab-content textarea {
+  width: 100%;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+.contentcraft-tab-content textarea::placeholder {
+  color: #64748b;
+}
+
+.contentcraft-tab-content textarea:focus {
+  outline: none;
+  border-color: #8b5cf6;
+}
+
+.contentcraft-options {
+  display: flex;
+  gap: 8px;
+}
+
+.contentcraft-options select,
+.contentcraft-tone {
+  flex: 1;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.contentcraft-options select:focus,
+.contentcraft-tone:focus {
+  outline: none;
+  border-color: #8b5cf6;
+}
+
+.contentcraft-hint {
+  color: #94a3b8;
+  font-size: 13px;
+  margin: 0;
+}
+
+/* Buttons */
+.contentcraft-generate-btn,
+.contentcraft-improve-btn,
+.contentcraft-hashtags-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.contentcraft-generate-btn:hover,
+.contentcraft-improve-btn:hover,
+.contentcraft-hashtags-btn:hover {
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.contentcraft-generate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Spinner */
+.contentcraft-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: contentcraft-spin 0.8s linear infinite;
+}
+
+.contentcraft-spinner.hidden {
+  display: none;
+}
+
+@keyframes contentcraft-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Result Section */
+.contentcraft-result {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.contentcraft-result.hidden {
+  display: none;
+}
+
+.contentcraft-result textarea {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.contentcraft-result-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.contentcraft-copy-btn,
+.contentcraft-insert-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.contentcraft-copy-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.contentcraft-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.contentcraft-insert-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+}
+
+.contentcraft-insert-btn:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+/* Notification */
+.contentcraft-notification {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #10b981;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 10001;
+  animation: contentcraft-notification-in 0.3s ease;
+}
+
+@keyframes contentcraft-notification-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Scrollbar */
+.contentcraft-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.contentcraft-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.contentcraft-modal-body::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 3px;
+}
+
+.contentcraft-modal-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+/* Platform-specific adjustments */
+/* Twitter/X */
+[data-testid="tweetTextarea_0"] ~ .contentcraft-ai-btn,
+[data-testid="tweetTextarea_0 RichTextEditor"] ~ .contentcraft-ai-btn {
+  margin-top: 8px;
+}
+
+/* LinkedIn */
+.ql-editor ~ .contentcraft-ai-btn {
+  margin-left: auto;
+}
+
+/* Instagram */
+textarea[aria-label="Write a caption..."] ~ .contentcraft-ai-btn {
+  margin-top: 8px;
+}
+
+/* Facebook */
+[role="textbox"] ~ .contentcraft-ai-btn {
+  margin-top: 8px;
+}
