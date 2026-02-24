@@ -20,6 +20,9 @@ const protect = async (req, res, next) => {
   }
 
   try {
+    if (!process.env.JWT_SECRET) {
+      return next(new ErrorResponse('Server misconfigured: JWT_SECRET is missing', 500));
+    }
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = await User.findById(decoded.id);
 
@@ -63,6 +66,9 @@ const optionalAuth = async (req, res, next) => {
 
   if (token) {
     try {
+      if (!process.env.JWT_SECRET) {
+        return next();
+      }
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       req.user = await User.findById(decoded.id);
     } catch (error) {
