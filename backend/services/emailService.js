@@ -1,12 +1,45 @@
 const nodemailer = require('nodemailer');
 const logger = require('../utils/logger');
 
+const parseBooleanEnv = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) return false;
+  return undefined;
+};
+
+const hasSmtpConfig = () => {
+  const required = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'FROM_NAME', 'FROM_EMAIL'];
+  return required.every((key) => !!process.env[key]);
+};
+
 class EmailService {
   constructor() {
+    const explicitEnabled = parseBooleanEnv(process.env.EMAIL_ENABLED);
+    this.enabled = explicitEnabled !== undefined ? explicitEnabled : process.env.NODE_ENV === 'production';
+
+    if (!this.enabled) {
+      this.transporter = null;
+      logger.info('Email disabled (set EMAIL_ENABLED=true and configure SMTP_* to enable)');
+      return;
+    }
+
+    if (!hasSmtpConfig()) {
+      const message = 'Email enabled but SMTP config is missing (SMTP_* / FROM_*)';
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(message);
+      }
+      this.enabled = false;
+      this.transporter = null;
+      logger.warn(`${message}; skipping email sends in non-production`);
+      return;
+    }
+
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT,
-      secure: process.env.SMTP_PORT === '465',
+      port: Number(process.env.SMTP_PORT),
+      secure: String(process.env.SMTP_PORT) === '465',
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASSWORD,
@@ -16,6 +49,11 @@ class EmailService {
 
   async sendEmail(options) {
     try {
+      if (!this.enabled || !this.transporter) {
+        logger.debug('Email send skipped (email disabled)');
+        return { skipped: true };
+      }
+
       const message = {
         from: `${process.env.FROM_NAME} <${process.env.FROM_EMAIL}>`,
         to: options.to,
