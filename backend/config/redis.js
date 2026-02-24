@@ -21,6 +21,7 @@ const getRedisProvider = () => {
   const provider = String(process.env.REDIS_PROVIDER || '').trim().toLowerCase();
   if (provider) return provider;
   if (process.env.UPSTASH_REDIS_URL || process.env.UPSTASH_REDIS_HOST) return 'upstash';
+  if (process.env.ELASTICACHE_REDIS_URL || process.env.ELASTICACHE_REDIS_HOST) return 'elasticache';
   return 'local';
 };
 
@@ -36,6 +37,10 @@ const connectRedis = () => {
     if (provider === 'upstash') {
       const { connectUpstashRedis } = require('./upstashRedis');
       return connectUpstashRedis();
+    }
+    if (provider === 'elasticache') {
+      const { connectElastiCacheRedis } = require('./elasticacheRedis');
+      return connectElastiCacheRedis();
     }
 
     redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
@@ -66,6 +71,10 @@ const getRedis = () => {
   if (provider === 'upstash') {
     const { getUpstashRedis } = require('./upstashRedis');
     return getUpstashRedis();
+  }
+  if (provider === 'elasticache') {
+    const { getElastiCacheRedis } = require('./elasticacheRedis');
+    return getElastiCacheRedis();
   }
 
   if (!redis) {
