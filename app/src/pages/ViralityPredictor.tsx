@@ -472,7 +472,7 @@
 //   );
 // }
 import { useState } from 'react';
-import { Zap, Loader2, Check, X } from 'lucide-react';
+import { Zap, Loader2, Check, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -557,21 +557,84 @@ export default function ViralityPredictor() {
               <div className="space-y-4">
                 <div>
                   <h4 className="font-medium mb-2">Key Factors</h4>
-                  {Object.entries(prediction.factors || {}).map(([key, value]: [string, any]) => (
-                    <div key={key} className="flex items-center justify-between py-2 border-b">
-                      <span className="text-sm capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
-                      <span className="font-medium">{value?.toFixed(1) || 0}/10</span>
-                    </div>
-                  ))}
+                  {prediction.breakdown ? (
+                    Object.entries(prediction.breakdown).map(([key, value]: [string, any]) => (
+                      <div key={key} className="flex items-center justify-between py-2 border-b">
+                        <span className="text-sm capitalize">
+                          {key === 'contentQuality' ? 'Content Quality' :
+                           key === 'audienceAlignment' ? 'Audience Alignment' :
+                           key === 'trendRelevance' ? 'Trend Relevance' :
+                           key === 'engagementPotential' ? 'Engagement Potential' :
+                           key === 'hashtagOptimization' ? 'Hashtag Optimization' :
+                           key.replace(/([A-Z])/g, ' $1')}
+                        </span>
+                        <span className="font-medium">{value?.score || 0}/100</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500">No factors available</p>
+                  )}
                 </div>
+
+                {prediction.predictions && (
+                  <div>
+                    <h4 className="font-medium mb-2">Engagement Predictions</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {prediction.predictions.likes && (
+                        <div className="p-2 bg-pink-50 rounded">
+                          <p className="text-xs text-gray-600">Likes</p>
+                          <p className="text-sm font-medium">{prediction.predictions.likes.min}-{prediction.predictions.likes.max}</p>
+                        </div>
+                      )}
+                      {prediction.predictions.comments && (
+                        <div className="p-2 bg-blue-50 rounded">
+                          <p className="text-xs text-gray-600">Comments</p>
+                          <p className="text-sm font-medium">{prediction.predictions.comments.min}-{prediction.predictions.comments.max}</p>
+                        </div>
+                      )}
+                      {prediction.predictions.shares && (
+                        <div className="p-2 bg-green-50 rounded">
+                          <p className="text-xs text-gray-600">Shares</p>
+                          <p className="text-sm font-medium">{prediction.predictions.shares.min}-{prediction.predictions.shares.max}</p>
+                        </div>
+                      )}
+                      {prediction.predictions.reach && (
+                        <div className="p-2 bg-amber-50 rounded">
+                          <p className="text-xs text-gray-600">Reach</p>
+                          <p className="text-sm font-medium">{prediction.predictions.reach.min}-{prediction.predictions.reach.max}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {prediction.suggestions && prediction.suggestions.length > 0 && (
                   <div>
                     <h4 className="font-medium mb-2">Suggestions</h4>
-                    {prediction.suggestions.map((suggestion: string, i: number) => (
-                      <div key={i} className="flex gap-2 py-2">
+                    {prediction.suggestions.map((suggestion: any, i: number) => (
+                      <div key={i} className="flex gap-2 py-2 border-b">
                         <Check className="w-4 h-4 text-green-600 mt-1 flex-shrink-0" />
-                        <p className="text-sm text-gray-700">{suggestion}</p>
+                        <div className="text-sm text-gray-700 flex-1">
+                          <p className="font-medium">{typeof suggestion === 'string' ? suggestion : suggestion.suggestion}</p>
+                          {suggestion.category && <p className="text-xs text-gray-500">Category: {suggestion.category}</p>}
+                          {suggestion.expectedImpact && <p className="text-xs text-gray-500">Impact: {suggestion.expectedImpact}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {prediction.risks && prediction.risks.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-2 text-red-600">Risks Detected</h4>
+                    {prediction.risks.map((risk: any, i: number) => (
+                      <div key={i} className="flex gap-2 py-2 border-b">
+                        <AlertTriangle className="w-4 h-4 text-red-600 mt-1 flex-shrink-0" />
+                        <div className="text-sm text-gray-700 flex-1">
+                          <p className="font-medium">{risk.type}</p>
+                          <p className="text-xs text-gray-600">{risk.description}</p>
+                          {risk.mitigation && <p className="text-xs text-blue-600 mt-1">Mitigation: {risk.mitigation}</p>}
+                        </div>
                       </div>
                     ))}
                   </div>
