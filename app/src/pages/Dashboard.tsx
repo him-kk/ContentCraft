@@ -542,17 +542,12 @@ import { motion } from 'framer-motion';
 import {
   FileText,
   TrendingUp,
-  Users,
-  Zap,
   ArrowUpRight,
   ArrowDownRight,
   Plus,
   Clock,
   Eye,
   Heart,
-  Sparkles,
-  Target,
-  BarChart3,
   ChevronRight,
   Loader2,
   AlertCircle,
@@ -686,7 +681,7 @@ export default function Dashboard() {
     return num.toString();
   };
 
-  const calculateChange = (current: number, change: number) => {
+  const calculateChange = (change: number) => {
     if (!change) return '+0%';
     const sign = change >= 0 ? '+' : '';
     return `${sign}${change.toFixed(1)}%`;
