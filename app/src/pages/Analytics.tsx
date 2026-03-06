@@ -518,7 +518,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -596,7 +595,7 @@ export default function Analytics() {
 
   const exportReport = async () => {
     try {
-      const response = await analyticsApi.exportReport('csv', {
+      await analyticsApi.exportReport('csv', {
         start: new Date(Date.now() - parseInt(timeRange) * 24 * 60 * 60 * 1000),
         end: new Date(),
       });

@@ -160,7 +160,6 @@ const contentGaps = [
 ];
 
 export default function AudienceInsights() {
-  const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedPersona, setSelectedPersona] = useState(personas[0]);
