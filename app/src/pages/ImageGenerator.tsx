@@ -189,31 +189,34 @@ export default function ImageGenerator() {
     });
   };
 
-  const handleDownload = async (imageUrl: string, prompt: string) => {
-    try {
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${prompt.substring(0, 50)}.png`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      toast({
-        title: 'Success',
-        description: 'Image downloaded successfully',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to download image',
-        variant: 'destructive',
-      });
-    }
-  };
+ const handleDownload = async (imageUrl: string, prompt: string) => {
+  try {
+    const response = await fetch(imageUrl, {
+      mode: 'cors',
+      cache: 'no-cache',
+    });
+
+    if (!response.ok) throw new Error('Fetch failed');
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${prompt.substring(0, 50)}.png`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+
+    toast({ title: 'Success', description: 'Image downloaded successfully' });
+  } catch (error) {
+    window.open(imageUrl, '_blank');
+    toast({
+      title: 'Tip',
+      description: 'Right-click the image and select "Save As" to download',
+    });
+  }
+};
 
   return (
     <div className="space-y-6">

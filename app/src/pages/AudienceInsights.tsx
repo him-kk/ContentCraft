@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Users,
@@ -14,6 +15,7 @@ import {
   ShoppingBag,
   Bookmark,
   ChevronRight,
+  Loader,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,6 +35,8 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
+import { audienceApi } from '@/services/api';
+import { useToast } from '@/hooks/use-toast';
 
 const demographicData = {
   age: [
@@ -156,8 +160,35 @@ const contentGaps = [
 ];
 
 export default function AudienceInsights() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedPersona, setSelectedPersona] = useState(personas[0]);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGeneratePersona = async () => {
+    setIsGenerating(true);
+    try {
+      const response = await audienceApi.generatePersonas();
+      
+      if (response.data.success) {
+        toast({
+          title: 'Success',
+          description: 'Personas generated successfully!',
+        });
+        // Navigate to the personas tab to show the generated personas
+        setActiveTab('personas');
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.response?.data?.message || 'Failed to generate personas',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -172,9 +203,22 @@ export default function AudienceInsights() {
             <Download className="w-4 h-4 mr-2" />
             Export Report
           </Button>
-          <Button className="btn-primary">
-            <Sparkles className="w-4 h-4 mr-2" />
-            Generate Persona
+          <Button 
+            className="btn-primary"
+            onClick={handleGeneratePersona}
+            disabled={isGenerating}
+          >
+            {isGenerating ? (
+              <>
+                <Loader className="w-4 h-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Generate Persona
+              </>
+            )}
           </Button>
         </div>
       </div>
