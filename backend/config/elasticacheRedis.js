@@ -59,38 +59,80 @@ const connectElastiCacheRedis = () => {
       return null;
     }
 
-    const url = buildElastiCacheRedisUrl();
-    if (!url) {
+    const host = process.env.ELASTICACHE_REDIS_HOST ||
+      (() => {
+        const url = process.env.ELASTICACHE_REDIS_URL || '';
+        // Extract host from URL like rediss://clustercfg.xxx.cache.amazonaws.com:6379
+        const match = url.match(/rediss?:\/\/(?:[^@]+@)?([^:]+):?(\d+)?/);
+        return match ? match[1] : null;
+      })();
+
+    const port = Number(process.env.ELASTICACHE_REDIS_PORT || 6379);
+
+    if (!host) {
       logger.warn('ElastiCache Redis not configured (set ELASTICACHE_REDIS_URL or ELASTICACHE_REDIS_HOST)');
       elasticacheRedis = null;
       return null;
     }
 
-    const tlsEnabled = parseBooleanEnv(process.env.ELASTICACHE_REDIS_TLS);
-    const tls = tlsEnabled !== undefined ? tlsEnabled : url.startsWith('rediss://');
+    const connectTimeout = Number(process.env.ELASTICACHE_REDIS_CONNECT_TIMEOUT_MS || 10000);
+    const password = process.env.ELASTICACHE_REDIS_PASSWORD || undefined;
 
-    elasticacheRedis = new Redis(url, {
-      retryStrategy: (times) => Math.min(times * 100, 2000),
-      maxRetriesPerRequest: 3,
-      connectTimeout: Number(process.env.ELASTICACHE_REDIS_CONNECT_TIMEOUT_MS || 10000),
-      enableReadyCheck: true,
-      ...(tls
-        ? {
-            tls: {
-              // For AWS ElastiCache with TLS, Node will validate certs by default.
-              // Use ELASTICACHE_REDIS_TLS_INSECURE=true only for debugging.
-              rejectUnauthorized: !(parseBooleanEnv(process.env.ELASTICACHE_REDIS_TLS_INSECURE) || false),
-            },
+    logger.info(`Connecting to ElastiCache Redis Cluster → ${host}:${port}`);
+
+    // Use Redis.Cluster for cluster mode (Cluster Mode Enabled on ElastiCache)
+    elasticacheRedis = new Redis.Cluster(
+      [{ host, port }],
+      {
+        // Required for ElastiCache cluster DNS resolution
+        dnsLookup: (address, callback) => callback(null, address),
+
+        redisOptions: {
+          // TLS is required — ElastiCache has "Encryption in transit: Required"
+          tls: {
+            rejectUnauthorized: false, // AWS internal certs — safe inside VPC
+          },
+          connectTimeout,
+          maxRetriesPerRequest: 3,
+          ...(password ? { password } : {}),
+        },
+
+        // Cluster-specific options
+        retryDelayOnFailover: 300,
+        retryDelayOnClusterDown: 300,
+        retryDelayOnTryAgain: 300,
+        enableOfflineQueue: false,
+        enableReadyCheck: true,
+
+        // Retry strategy for cluster
+        clusterRetryStrategy: (times) => {
+          if (times > 10) {
+            logger.error('ElastiCache Redis Cluster: max retries reached');
+            return null; // Stop retrying
           }
-        : {}),
-    });
+          return Math.min(times * 100, 2000);
+        },
+      }
+    );
 
     elasticacheRedis.on('connect', () => {
-      logger.info('ElastiCache Redis connected successfully');
+      logger.info('ElastiCache Redis Cluster connected successfully');
+    });
+
+    elasticacheRedis.on('ready', () => {
+      logger.info('ElastiCache Redis Cluster ready');
     });
 
     elasticacheRedis.on('error', (err) => {
-      logger.error('ElastiCache Redis error:', err);
+      logger.error('ElastiCache Redis Cluster error:', err);
+    });
+
+    elasticacheRedis.on('close', () => {
+      logger.warn('ElastiCache Redis Cluster connection closed');
+    });
+
+    elasticacheRedis.on('reconnecting', () => {
+      logger.info('ElastiCache Redis Cluster reconnecting...');
     });
 
     return elasticacheRedis;

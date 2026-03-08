@@ -1,18 +1,83 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const AudiencePersona = require('../models/AudiencePersona');
 const Content = require('../models/Content');
 const Analytics = require('../models/Analytics');
 const logger = require('../utils/logger');
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const callModel = require('./callModel');
 
 class AudienceService {
+
+  // ── Sanitize AI persona output to match Mongoose schema exactly ──────────
+  sanitizePersona(persona) {
+    // Fix psychographics.personality — must be lowercase enum
+    // e.g. "Innovator" → "innovator", "Early Adopter" → "early_adopter"
+    if (persona.psychographics?.personality) {
+      persona.psychographics.personality = persona.psychographics.personality
+        .toLowerCase()
+        .replace(/\s+/g, '_');
+    }
+
+    // Fix psychographics.interests — schema expects [{name: String, affinity: Number}]
+    // AI sometimes returns plain strings ["Technology"]
+    if (Array.isArray(persona.psychographics?.interests)) {
+      persona.psychographics.interests = persona.psychographics.interests.map(item =>
+        typeof item === 'string'
+          ? { name: item, affinity: 50 }
+          : { name: item.name || 'Unknown', affinity: item.affinity ?? 50 }
+      );
+    }
+
+    // Fix contentPreferences.topics — schema expects [{name: String, interest: Number}]
+    // AI sometimes returns plain strings ["Technology Trends"]
+    if (Array.isArray(persona.contentPreferences?.topics)) {
+      persona.contentPreferences.topics = persona.contentPreferences.topics.map(item =>
+        typeof item === 'string'
+          ? { name: item, interest: 50 }
+          : { name: item.name || 'Unknown', interest: item.interest ?? 50 }
+      );
+    }
+
+    // Fix contentPreferences.formats — schema [{ type: String }] = array of plain strings
+    if (Array.isArray(persona.contentPreferences?.formats)) {
+      persona.contentPreferences.formats = persona.contentPreferences.formats.map(item =>
+        typeof item === "string" ? item : (item.type || item.format || "blog")
+      );
+    }
+
+    // Fix behavior.preferredContentTypes — schema [{ type: String }] = array of plain strings
+    if (Array.isArray(persona.behavior?.preferredContentTypes)) {
+      persona.behavior.preferredContentTypes = persona.behavior.preferredContentTypes.map(item =>
+        typeof item === "string" ? item : (item.type || item.contentType || "blog")
+      );
+    }
+
+    // Fix contentPreferences.length — must match enum: short|medium|long|mixed
+    const validLengths = ['short', 'medium', 'long', 'mixed'];
+    if (persona.contentPreferences?.length &&
+        !validLengths.includes(persona.contentPreferences.length)) {
+      persona.contentPreferences.length = 'medium';
+    }
+
+    // Fix purchaseIntent.stage — must match enum
+    const validStages = ['awareness', 'consideration', 'decision', 'purchase', 'loyalty'];
+    if (persona.purchaseIntent?.stage &&
+        !validStages.includes(persona.purchaseIntent.stage)) {
+      persona.purchaseIntent.stage = 'consideration';
+    }
+
+    // Fix sourcePlatforms — must match enum
+    const validPlatforms = ['twitter', 'linkedin', 'instagram', 'facebook', 'tiktok', 'youtube'];
+    if (Array.isArray(persona.sourcePlatforms)) {
+      persona.sourcePlatforms = persona.sourcePlatforms.filter(sp =>
+        validPlatforms.includes(sp.platform)
+      );
+    }
+
+    return persona;
+  }
+
   // Generate audience personas from data
   async generatePersonas(userId, platformData = {}) {
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
-      // Get user's content performance data
       const contentData = await Content.find({
         user: userId,
         status: 'published',
@@ -21,7 +86,6 @@ class AudienceService {
         .limit(50)
         .select('performance platform type tags tone');
 
-      // Get analytics data
       const analyticsData = await Analytics.find({ user: userId })
         .sort({ date: -1 })
         .limit(30);
@@ -39,34 +103,34 @@ ${JSON.stringify(contentData.map(c => ({
 Platform Data:
 ${JSON.stringify(platformData)}
 
-For each persona, provide:
+For each persona, provide EXACTLY this structure:
 {
-  "name": "descriptive name (e.g., 'Tech-Savvy Startup Founder')",
+  "name": "Tech-Savvy Startup Founder",
   "description": "brief overview",
   "demographics": {
     "ageRange": { "min": 25, "max": 35 },
-    "gender": "male|female|non-binary|unknown",
+    "gender": "male",
     "locations": [{ "country": "US", "percentage": 60 }],
-    "occupation": ["roles"],
-    "industries": ["industries"],
+    "occupation": ["Software Engineer"],
+    "industries": ["Technology"],
     "income": { "range": "$50k-$100k", "currency": "USD" }
   },
   "psychographics": {
-    "interests": [{ "name": "interest", "affinity": 85 }],
-    "values": ["value1", "value2"],
-    "personality": "innovator|early_adopter|etc",
-    "goals": ["goal1", "goal2"],
-    "challenges": ["challenge1", "challenge2"]
+    "interests": [{ "name": "Technology", "affinity": 85 }],
+    "values": ["innovation", "efficiency"],
+    "personality": "innovator",
+    "goals": ["grow business", "save time"],
+    "challenges": ["lack of resources"]
   },
   "behavior": {
-    "activeHours": [{ "day": "Monday", "hours": [9, 10, 11, 12, 20, 21] }],
+    "activeHours": [{ "day": "Monday", "hours": [9, 10, 20] }],
     "preferredContentTypes": [{ "type": "blog", "percentage": 40 }],
-    "engagementPatterns": { "likesFrequency": "high", "commentFrequency": "medium" },
+    "engagementPatterns": { "likesFrequency": "high", "commentFrequency": "medium", "shareFrequency": "low" },
     "deviceUsage": { "mobile": 60, "desktop": 35, "tablet": 5 }
   },
-  "painPoints": [{ "description": "pain point", "severity": 8 }],
+  "painPoints": [{ "description": "not enough time", "severity": 8 }],
   "contentPreferences": {
-    "topics": [{ "name": "topic", "interest": 90 }],
+    "topics": [{ "name": "AI Tools", "interest": 90 }],
     "formats": [{ "type": "video", "preference": 80 }],
     "tone": ["professional", "friendly"],
     "length": "medium"
@@ -74,10 +138,17 @@ For each persona, provide:
   "purchaseIntent": { "score": 75, "stage": "consideration", "priceSensitivity": 40 }
 }
 
-Respond with a JSON array of personas.`;
+STRICT RULES:
+- personality must be exactly one of: innovator, early_adopter, early_majority, late_majority, laggard
+- interests must be array of objects with "name" and "affinity" fields — NOT plain strings
+- topics must be array of objects with "name" and "interest" fields — NOT plain strings
+- formats must be array of objects with "type" and "preference" fields — NOT plain strings
+- length must be exactly one of: short, medium, long, mixed
+- stage must be exactly one of: awareness, consideration, decision, purchase, loyalty
 
-      const result = await model.generateContent(prompt);
-      const responseText = result.response.text();
+Respond with a JSON array of personas only. No extra text.`;
+
+      const responseText = await callModel(prompt);
 
       let personas;
       try {
@@ -88,16 +159,37 @@ Respond with a JSON array of personas.`;
         personas = this.generateDefaultPersonas();
       }
 
-      // Save personas to database
+      // Sanitize each persona before saving to DB
       const savedPersonas = [];
       for (const personaData of personas) {
-        const persona = await AudiencePersona.create({
-          user: userId,
-          ...personaData,
-          isAutoGenerated: true,
-          lastAnalyzed: new Date(),
-        });
-        savedPersonas.push(persona);
+        try {
+          const sanitized = this.sanitizePersona(personaData);
+          const persona = await AudiencePersona.create({
+            user: userId,
+            ...sanitized,
+            isAutoGenerated: true,
+            lastAnalyzed: new Date(),
+          });
+          savedPersonas.push(persona);
+        } catch (personaError) {
+          // Log individual persona error but continue saving others
+          logger.error('Single persona save error:', personaError.message);
+        }
+      }
+
+      // If all personas failed, use defaults
+      if (savedPersonas.length === 0) {
+        const defaults = this.generateDefaultPersonas();
+        for (const personaData of defaults) {
+          const sanitized = this.sanitizePersona(personaData);
+          const persona = await AudiencePersona.create({
+            user: userId,
+            ...sanitized,
+            isAutoGenerated: true,
+            lastAnalyzed: new Date(),
+          });
+          savedPersonas.push(persona);
+        }
       }
 
       return {
@@ -141,10 +233,7 @@ Respond with a JSON array of personas.`;
       };
     } catch (error) {
       logger.error('Behavior analysis error:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
@@ -163,7 +252,6 @@ Respond with a JSON array of personas.`;
         }
       }
 
-      // Group and rank pain points
       const grouped = this.groupPainPoints(allPainPoints);
 
       return {
@@ -174,10 +262,7 @@ Respond with a JSON array of personas.`;
       };
     } catch (error) {
       logger.error('Pain points error:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
@@ -190,8 +275,6 @@ Respond with a JSON array of personas.`;
         status: { $in: ['published', 'scheduled'] },
       }).select('tags type title');
 
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
       const prompt = `Analyze audience interests and existing content to identify content gaps.
 
 Audience Interests:
@@ -200,30 +283,25 @@ ${JSON.stringify(personas.flatMap(p => p.contentPreferences.topics))}
 Existing Content Topics:
 ${JSON.stringify(existingContent.map(c => ({ title: c.title, tags: c.tags, type: c.type })))}
 
-Identify:
-1. High-interest topics with low content coverage
-2. Emerging topics audience might be interested in
-3. Content formats that are underutilized
-4. Questions/problems not adequately addressed
-
 Respond in JSON format:
 {
   "gaps": [
     {
       "topic": "topic name",
-      "demand": 1-100,
-      "supply": 1-100,
-      "opportunity": 1-100,
-      "recommendedFormat": "blog|video|infographic|etc",
+      "demand": 75,
+      "supply": 20,
+      "opportunity": 85,
+      "recommendedFormat": "blog",
       "contentIdeas": ["idea1", "idea2"]
     }
   ],
   "prioritizedGaps": ["gap1", "gap2"],
   "recommendedContentCalendar": [{ "topic": "topic", "priority": "high", "timeline": "1 week" }]
-}`;
+}
 
-      const result = await model.generateContent(prompt);
-      const responseText = result.response.text();
+Respond with ONLY the JSON object, no extra text.`;
+
+      const responseText = await callModel(prompt);
 
       let gaps;
       try {
@@ -233,16 +311,10 @@ Respond in JSON format:
         gaps = { gaps: [], prioritizedGaps: [], recommendedContentCalendar: [] };
       }
 
-      return {
-        success: true,
-        ...gaps,
-      };
+      return { success: true, ...gaps };
     } catch (error) {
       logger.error('Content gaps error:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
@@ -267,10 +339,7 @@ Respond in JSON format:
       };
     } catch (error) {
       logger.error('Demographics error:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
@@ -297,16 +366,12 @@ Respond in JSON format:
       return {
         success: true,
         personalityProfile: personalityTypes,
-        dominantType: Object.entries(personalityTypes)
-          .sort((a, b) => b[1] - a[1])[0][0],
+        dominantType: Object.entries(personalityTypes).sort((a, b) => b[1] - a[1])[0][0],
         interpretation: this.interpretPersonalityProfile(personalityTypes),
       };
     } catch (error) {
       logger.error('Personality profile error:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
@@ -318,24 +383,17 @@ Respond in JSON format:
 
       for (const criteria of segmentCriteria) {
         const matchingPersonas = personas.filter(p => {
-          // Apply filter criteria
           if (criteria.ageRange) {
             const age = p.demographics?.ageRange;
-            if (age && (age.min > criteria.ageRange.max || age.max < criteria.ageRange.min)) {
-              return false;
-            }
+            if (age && (age.min > criteria.ageRange.max || age.max < criteria.ageRange.min)) return false;
           }
           if (criteria.interests?.length > 0) {
             const interests = p.psychographics?.interests?.map(i => i.name) || [];
-            if (!criteria.interests.some(i => interests.includes(i))) {
-              return false;
-            }
+            if (!criteria.interests.some(i => interests.includes(i))) return false;
           }
           if (criteria.locations?.length > 0) {
             const locations = p.demographics?.locations?.map(l => l.country) || [];
-            if (!criteria.locations.some(l => locations.includes(l))) {
-              return false;
-            }
+            if (!criteria.locations.some(l => locations.includes(l))) return false;
           }
           return true;
         });
@@ -351,17 +409,10 @@ Respond in JSON format:
         }
       }
 
-      return {
-        success: true,
-        segments,
-        count: segments.length,
-      };
+      return { success: true, segments, count: segments.length };
     } catch (error) {
       logger.error('Create segments error:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
@@ -371,11 +422,7 @@ Respond in JSON format:
       const personas = await AudiencePersona.find({ user: userId });
 
       const intentDistribution = {
-        awareness: [],
-        consideration: [],
-        decision: [],
-        purchase: [],
-        loyalty: [],
+        awareness: [], consideration: [], decision: [], purchase: [], loyalty: [],
       };
 
       let totalScore = 0;
@@ -405,23 +452,14 @@ Respond in JSON format:
       };
     } catch (error) {
       logger.error('Purchase intent error:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
   // Track audience evolution
   async trackEvolution(userId, months = 6) {
     try {
-      // Get historical persona data
-      const since = new Date(Date.now() - months * 30 * 24 * 60 * 60 * 1000);
-      
       const currentPersonas = await AudiencePersona.find({ user: userId });
-      
-      // In production, compare with historical snapshots
-      // For now, generate evolution insights
 
       const evolution = {
         period: `${months} months`,
@@ -443,23 +481,17 @@ Respond in JSON format:
         ],
       };
 
-      return {
-        success: true,
-        evolution,
-      };
+      return { success: true, evolution };
     } catch (error) {
       logger.error('Track evolution error:', error);
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
-  // Helper methods
+  // ── Helper methods ────────────────────────────────────────────────────────
+
   calculatePeakTimes(personas) {
     const hourActivity = Array(24).fill(0);
-    
     for (const persona of personas) {
       for (const dayData of persona.behavior?.activeHours || []) {
         for (const hour of dayData.hours || []) {
@@ -467,24 +499,21 @@ Respond in JSON format:
         }
       }
     }
-
-    const peakHours = hourActivity
+    return hourActivity
       .map((activity, hour) => ({ hour, activity }))
       .sort((a, b) => b.activity - a.activity)
       .slice(0, 5);
-
-    return peakHours;
   }
 
   aggregateContentPreferences(personas) {
     const preferences = {};
-    
     for (const persona of personas) {
       for (const pref of persona.contentPreferences?.topics || []) {
-        preferences[pref.name] = (preferences[pref.name] || 0) + pref.interest;
+        const name = typeof pref === 'object' ? pref.name : pref;
+        const interest = typeof pref === 'object' ? pref.interest : 50;
+        preferences[name] = (preferences[name] || 0) + interest;
       }
     }
-
     return Object.entries(preferences)
       .map(([name, interest]) => ({ name, interest: interest / personas.length }))
       .sort((a, b) => b.interest - a.interest);
@@ -496,22 +525,22 @@ Respond in JSON format:
       commentFrequency: { high: 0, medium: 0, low: 0 },
       shareFrequency: { high: 0, medium: 0, low: 0 },
     };
-
     for (const persona of personas) {
       const engagement = persona.behavior?.engagementPatterns;
       if (engagement) {
-        patterns.likesFrequency[engagement.likesFrequency]++;
-        patterns.commentFrequency[engagement.commentFrequency]++;
-        patterns.shareFrequency[engagement.shareFrequency]++;
+        if (patterns.likesFrequency[engagement.likesFrequency] !== undefined)
+          patterns.likesFrequency[engagement.likesFrequency]++;
+        if (patterns.commentFrequency[engagement.commentFrequency] !== undefined)
+          patterns.commentFrequency[engagement.commentFrequency]++;
+        if (patterns.shareFrequency[engagement.shareFrequency] !== undefined)
+          patterns.shareFrequency[engagement.shareFrequency]++;
       }
     }
-
     return patterns;
   }
 
   calculateDeviceBreakdown(personas) {
     const breakdown = { mobile: 0, desktop: 0, tablet: 0 };
-    
     for (const persona of personas) {
       const devices = persona.behavior?.deviceUsage;
       if (devices) {
@@ -520,19 +549,16 @@ Respond in JSON format:
         breakdown.tablet += devices.tablet * (persona.segmentSize?.percentage || 0) / 100;
       }
     }
-
     return breakdown;
   }
 
   aggregateGeography(personas) {
     const locations = {};
-    
     for (const persona of personas) {
       for (const loc of persona.demographics?.locations || []) {
         locations[loc.country] = (locations[loc.country] || 0) + loc.percentage;
       }
     }
-
     return Object.entries(locations)
       .map(([country, percentage]) => ({ country, percentage }))
       .sort((a, b) => b.percentage - a.percentage);
@@ -540,16 +566,12 @@ Respond in JSON format:
 
   groupPainPoints(painPoints) {
     const grouped = {};
-    
     for (const pp of painPoints) {
       const key = pp.description.toLowerCase();
-      if (!grouped[key]) {
-        grouped[key] = { ...pp, count: 0, personas: [] };
-      }
+      if (!grouped[key]) grouped[key] = { ...pp, count: 0, personas: [] };
       grouped[key].count++;
       grouped[key].personas.push(pp.persona);
     }
-
     return Object.values(grouped)
       .sort((a, b) => b.severity * b.count - a.severity * a.count);
   }
@@ -568,7 +590,6 @@ Respond in JSON format:
 
   calculateAgeDistribution(personas) {
     const distribution = {};
-    
     for (const persona of personas) {
       const age = persona.demographics?.ageRange;
       if (age) {
@@ -576,20 +597,17 @@ Respond in JSON format:
         distribution[key] = (distribution[key] || 0) + (persona.segmentSize?.percentage || 0);
       }
     }
-
     return distribution;
   }
 
   calculateGenderDistribution(personas) {
     const distribution = { male: 0, female: 0, 'non-binary': 0, unknown: 0 };
-    
     for (const persona of personas) {
       const gender = persona.demographics?.gender;
-      if (gender) {
+      if (gender && distribution[gender] !== undefined) {
         distribution[gender] += persona.segmentSize?.percentage || 0;
       }
     }
-
     return distribution;
   }
 
@@ -599,44 +617,37 @@ Respond in JSON format:
 
   calculateOccupationDistribution(personas) {
     const distribution = {};
-    
     for (const persona of personas) {
       for (const occ of persona.demographics?.occupation || []) {
         distribution[occ] = (distribution[occ] || 0) + (persona.segmentSize?.percentage || 0);
       }
     }
-
     return distribution;
   }
 
   calculateIncomeDistribution(personas) {
     const distribution = {};
-    
     for (const persona of personas) {
       const income = persona.demographics?.income?.range;
       if (income) {
         distribution[income] = (distribution[income] || 0) + (persona.segmentSize?.percentage || 0);
       }
     }
-
     return distribution;
   }
 
   calculateEducationDistribution(personas) {
     const distribution = {};
-    
     for (const persona of personas) {
       for (const edu of persona.demographics?.education || []) {
         distribution[edu] = (distribution[edu] || 0) + (persona.segmentSize?.percentage || 0);
       }
     }
-
     return distribution;
   }
 
   interpretPersonalityProfile(profile) {
     const dominant = Object.entries(profile).sort((a, b) => b[1] - a[1])[0];
-    
     const interpretations = {
       innovator: 'Your audience is eager to try new things and be first. Focus on cutting-edge content.',
       early_adopter: 'Your audience is trend-aware and influential. Leverage emerging trends.',
@@ -644,19 +655,18 @@ Respond in JSON format:
       late_majority: 'Your audience is cautious. Emphasize reliability and support.',
       laggard: 'Your audience is traditional. Focus on established methods and gradual change.',
     };
-
     return interpretations[dominant[0]] || 'Mixed audience - diversify content approach.';
   }
 
   getDominantInterests(personas) {
     const interests = {};
-    
     for (const persona of personas) {
       for (const interest of persona.psychographics?.interests || []) {
-        interests[interest.name] = (interests[interest.name] || 0) + interest.affinity;
+        const name = typeof interest === 'object' ? interest.name : interest;
+        const affinity = typeof interest === 'object' ? interest.affinity : 50;
+        interests[name] = (interests[name] || 0) + affinity;
       }
     }
-
     return Object.entries(interests)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
@@ -664,14 +674,12 @@ Respond in JSON format:
   }
 
   identifyGrowingSegments(personas) {
-    // In production, compare with historical data
     return personas
       .filter(p => p.performance?.avgEngagement > 5)
       .map(p => p.name);
   }
 
   identifyDecliningSegments(personas) {
-    // In production, compare with historical data
     return [];
   }
 
@@ -687,8 +695,25 @@ Respond in JSON format:
         },
         psychographics: {
           interests: [{ name: 'Technology', affinity: 90 }],
+          values: ['innovation', 'efficiency'],
           personality: 'innovator',
+          goals: ['stay ahead of trends'],
+          challenges: ['information overload'],
         },
+        behavior: {
+          activeHours: [{ day: 'Monday', hours: [9, 10, 20] }],
+          preferredContentTypes: ['blog'],
+          engagementPatterns: { likesFrequency: 'high', commentFrequency: 'medium', shareFrequency: 'low' },
+          deviceUsage: { mobile: 60, desktop: 35, tablet: 5 },
+        },
+        painPoints: [{ description: 'Too much noise, not enough signal', severity: 7 }],
+        contentPreferences: {
+          topics: [{ name: 'Technology', interest: 90 }],
+          formats: ['video'],
+          tone: ['professional'],
+          length: 'medium',
+        },
+        purchaseIntent: { score: 70, stage: 'consideration', priceSensitivity: 40 },
       },
     ];
   }

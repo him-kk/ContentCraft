@@ -39,10 +39,24 @@ router.get('/', protect, async (req, res, next) => {
 // @access  Private
 router.post('/', protect, createScheduleValidator, async (req, res, next) => {
   try {
-    const schedule = await Schedule.create({
-      user: req.user.id,
-      ...req.body,
-    });
+    const scheduleData = { user: req.user.id, ...req.body };
+    
+    // Transform platforms to proper format if needed
+    if (scheduleData.platforms) {
+      if (typeof scheduleData.platforms === 'string') {
+        // Single platform as string: "blog" -> [{ platform: "blog", status: "pending" }]
+        scheduleData.platforms = [{ platform: scheduleData.platforms, status: 'pending' }];
+      } else if (Array.isArray(scheduleData.platforms)) {
+        // If array of strings: ["blog", "twitter"] -> [{ platform: "blog", status: "pending" }, ...]
+        scheduleData.platforms = scheduleData.platforms.map(p => 
+          typeof p === 'string' 
+            ? { platform: p, status: 'pending' }
+            : p
+        );
+      }
+    }
+
+    const schedule = await Schedule.create(scheduleData);
 
     await schedule.populate('content');
 
@@ -133,12 +147,29 @@ router.post('/bulk', protect, async (req, res, next) => {
   try {
     const { schedules } = req.body;
 
-    const created = await Schedule.insertMany(
-      schedules.map(s => ({
-        user: req.user.id,
-        ...s,
-      }))
-    );
+    // Transform platforms data to proper format
+    const transformedSchedules = schedules.map(s => {
+      const schedule = { user: req.user.id, ...s };
+      
+      // Convert platforms to proper format if it's a string or simple array
+      if (schedule.platforms) {
+        if (typeof schedule.platforms === 'string') {
+          // Single platform as string: "blog" -> [{ platform: "blog", status: "pending" }]
+          schedule.platforms = [{ platform: schedule.platforms, status: 'pending' }];
+        } else if (Array.isArray(schedule.platforms)) {
+          // If array of strings: ["blog", "twitter"] -> [{ platform: "blog", status: "pending" }, ...]
+          schedule.platforms = schedule.platforms.map(p => 
+            typeof p === 'string' 
+              ? { platform: p, status: 'pending' }
+              : p
+          );
+        }
+      }
+      
+      return schedule;
+    });
+
+    const created = await Schedule.insertMany(transformedSchedules);
 
     res.status(201).json({
       success: true,

@@ -315,6 +315,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               </SheetContent>
             </Sheet>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/extension')}
+              className="bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100 border-purple-200"
+            >
+              <span className="text-lg mr-2">🔌</span>
+              Extension
+            </Button>
             <div className="flex items-center gap-2">
               <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">
                 <Brain className="w-3 h-3 mr-1" />

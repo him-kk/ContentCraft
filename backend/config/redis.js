@@ -52,7 +52,7 @@ const connectRedis = () => {
     });
 
     redis.on('connect', () => {
-      logger.info('Redis connected successfully');
+      logger.info('Redis connected successfully to elasticache');
     });
 
     redis.on('error', (err) => {

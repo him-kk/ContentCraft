@@ -224,11 +224,11 @@ export default function ImageGenerator() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">AI Image Generator</h1>
-          <p className="text-zinc-500">Create stunning images with DALL-E 3.</p>
+          <p className="text-zinc-500">Create stunning images with Amazon Titan.</p>
         </div>
         <Badge className="bg-purple-100 text-purple-700 w-fit">
           <Sparkles className="w-3 h-3 mr-1" />
-          Powered by DALL-E 3
+          Powered by Amazon Titan
         </Badge>
       </div>
 

@@ -501,7 +501,8 @@
 //   );
 // }
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart3,
   TrendingUp,
@@ -515,6 +516,9 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Loader2,
+  AlertCircle,
+  X,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -555,6 +559,8 @@ export default function Analytics() {
   const [trends, setTrends] = useState<any[]>([]);
   const [platforms, setPlatforms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showNotification, setShowNotification] = useState(false);
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -594,23 +600,7 @@ export default function Analytics() {
   };
 
   const exportReport = async () => {
-    try {
-      await analyticsApi.exportReport('csv', {
-        start: new Date(Date.now() - parseInt(timeRange) * 24 * 60 * 60 * 1000),
-        end: new Date(),
-      });
-      
-      toast({
-        title: 'Success',
-        description: 'Report exported successfully',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to export report',
-        variant: 'destructive',
-      });
-    }
+    setShowNotification(true);
   };
 
   if (loading) {
@@ -638,6 +628,137 @@ export default function Analytics() {
 
   return (
     <div className="p-8">
+      {/* Notification Modal */}
+      <AnimatePresence>
+        {showNotification && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => setShowNotification(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ duration: 0.3, type: 'spring', stiffness: 300, damping: 30 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header Background */}
+              <div className="h-1 bg-gradient-to-r from-amber-400 to-orange-500" />
+              
+              {/* Close Button */}
+              <button
+                onClick={() => setShowNotification(false)}
+                className="absolute top-4 right-4 p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Content */}
+              <div className="p-8">
+                {/* Icon */}
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.2, type: 'spring', stiffness: 300 }}
+                  className="flex justify-center mb-6"
+                >
+                  <div className="w-16 h-16 bg-gradient-to-br from-amber-100 to-orange-100 rounded-full flex items-center justify-center">
+                    <AlertCircle className="w-8 h-8 text-amber-600" />
+                  </div>
+                </motion.div>
+
+                {/* Text Content */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-center mb-6"
+                >
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    Analytics Not Available
+                  </h2>
+                  <p className="text-gray-600 leading-relaxed">
+                    You must add at least one social media account to access and export your account analytics.
+                  </p>
+                </motion.div>
+
+                {/* Connected Accounts Info */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-4 mb-6 border border-purple-100"
+                >
+                  <p className="text-sm text-gray-700 font-medium mb-3">Supported Platforms:</p>
+                  <div className="flex gap-3">
+                    {[
+                      { icon: Instagram, name: 'Instagram' },
+                      { icon: Twitter, name: 'Twitter' },
+                      { icon: Linkedin, name: 'LinkedIn' },
+                      { icon: Facebook, name: 'Facebook' },
+                    ].map((platform, idx) => (
+                      <motion.div
+                        key={platform.name}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.5 + idx * 0.05 }}
+                        className="flex flex-col items-center"
+                      >
+                        <div className="p-2 bg-white rounded-lg shadow-sm">
+                          <platform.icon className="w-5 h-5 text-gray-600" />
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">{platform.name}</p>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* Action Buttons */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="space-y-3"
+                >
+                  <Button
+                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium h-11 rounded-lg"
+                    onClick={() => {
+                      setShowNotification(false);
+                      navigate('/settings');
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Connect Account Now
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full h-11 rounded-lg"
+                    onClick={() => setShowNotification(false)}
+                  >
+                    Maybe Later
+                  </Button>
+                </motion.div>
+
+                {/* Help Text */}
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.6 }}
+                  className="text-xs text-gray-500 text-center mt-4"
+                >
+                  Once connected, you'll unlock full analytics and export capabilities
+                </motion.p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>

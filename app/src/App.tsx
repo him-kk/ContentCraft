@@ -17,6 +17,7 @@ import Scheduler from '@/pages/Scheduler';
 import Analytics from '@/pages/Analytics';
 import ImageGenerator from '@/pages/ImageGenerator';
 import Settings from '@/pages/Settings';
+import ChromeExtension from '@/pages/ChromeExtension';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -170,6 +171,14 @@ function AppRoutes() {
             <DashboardLayout>
               <Settings />
             </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/extension"
+        element={
+          <ProtectedRoute>
+            <ChromeExtension />
           </ProtectedRoute>
         }
       />

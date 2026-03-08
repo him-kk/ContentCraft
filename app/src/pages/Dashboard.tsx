@@ -570,6 +570,23 @@ import {
 import { analyticsApi, contentApi, schedulerApi, trendsApi } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 
+const dummyTrendsData = [
+  { date: 'Mon', views: 4200, engagement: 320 },
+  { date: 'Tue', views: 5100, engagement: 410 },
+  { date: 'Wed', views: 4800, engagement: 390 },
+  { date: 'Thu', views: 6200, engagement: 520 },
+  { date: 'Fri', views: 7100, engagement: 610 },
+  { date: 'Sat', views: 8400, engagement: 760 },
+  { date: 'Sun', views: 6800, engagement: 580 },
+];
+
+const dummyPlatformStats = [
+  { _id: 'instagram', posts: 35 },
+  { _id: 'twitter', posts: 28 },
+  { _id: 'linkedin', posts: 22 },
+  { _id: 'facebook', posts: 15 },
+];
+
 export default function Dashboard() {
   const [overview, setOverview] = useState<any>(null);
   const [recentContent, setRecentContent] = useState<any[]>([]);
@@ -580,6 +597,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const engagementChartData = trendsData.length > 0 ? trendsData : dummyTrendsData;
   
   // Prevent double API calls in React StrictMode
   const hasFetched = useRef(false);
@@ -623,16 +642,20 @@ export default function Dashboard() {
 
       // Process trends
       if (results[2].status === 'fulfilled') {
-        setTrendsData(results[2].value.data.data || []);
+        const trendItems = results[2].value.data.data || [];
+        setTrendsData(trendItems.length > 0 ? trendItems : dummyTrendsData);
       } else {
         console.error('Trends error:', results[2].reason);
+        setTrendsData(dummyTrendsData);
       }
 
       // Process platforms
       if (results[3].status === 'fulfilled') {
-        setPlatformStats(results[3].value.data.data || []);
+        const platformItems = results[3].value.data.data || [];
+        setPlatformStats(platformItems.length > 0 ? platformItems : dummyPlatformStats);
       } else {
         console.error('Platforms error:', results[3].reason);
+        setPlatformStats(dummyPlatformStats);
       }
 
       // Process schedule
@@ -733,7 +756,6 @@ export default function Dashboard() {
       title: 'Total Views',
       value: formatNumber(overview?.performance?.views || 0),
       change: calculateChange(
-        overview?.performance?.views || 0,
         overview?.trends?.viewsChange || 0
       ),
       trend: (overview?.trends?.viewsChange || 0) >= 0 ? 'up' : 'down',
@@ -745,7 +767,6 @@ export default function Dashboard() {
       value: overview?.performance?.engagement ? 
         `${overview.performance.engagement.toFixed(1)}%` : '0%',
       change: calculateChange(
-        overview?.performance?.engagement || 0,
         overview?.trends?.engagementChange || 0
       ),
       trend: (overview?.trends?.engagementChange || 0) >= 0 ? 'up' : 'down',
@@ -778,7 +799,7 @@ export default function Dashboard() {
     tiktok: '#000000',
   };
 
-  const platformChartData = platformStats.map((platform) => ({
+  const platformChartData = (platformStats.length > 0 ? platformStats : dummyPlatformStats).map((platform) => ({
     name: platform._id || platform.platform,
     value: platform.posts || platform.totalViews || 0,
     color: platformColors[platform._id?.toLowerCase() as keyof typeof platformColors] || '#8b5cf6',
@@ -853,33 +874,27 @@ export default function Dashboard() {
             <CardTitle>Engagement Trends</CardTitle>
           </CardHeader>
           <CardContent>
-            {trendsData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={trendsData}>
-                  <defs>
-                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" stroke="#94a3b8" />
-                  <YAxis stroke="#94a3b8" />
-                  <Tooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="views"
-                    stroke="#8b5cf6"
-                    fillOpacity={1}
-                    fill="url(#colorViews)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[300px] flex items-center justify-center text-gray-500">
-                No trend data available
-              </div>
-            )}
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={engagementChartData}>
+                <defs>
+                  <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="date" stroke="#94a3b8" />
+                <YAxis stroke="#94a3b8" />
+                <Tooltip />
+                <Area
+                  type="monotone"
+                  dataKey="views"
+                  stroke="#8b5cf6"
+                  fillOpacity={1}
+                  fill="url(#colorViews)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
@@ -1052,12 +1067,19 @@ export default function Dashboard() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Trending Topics</CardTitle>
-          <Link to="/trends">
-            <Button variant="ghost" size="sm">
-              View All
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/settings">
+              <Button size="sm" className="bg-purple-600 hover:bg-purple-700">
+                Connect To Your Account
+              </Button>
+            </Link>
+            <Link to="/trends">
+              <Button variant="ghost" size="sm">
+                View All
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </Link>
+          </div>
         </CardHeader>
         <CardContent>
           {trendingTopics.length === 0 ? (

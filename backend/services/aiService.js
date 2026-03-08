@@ -1,13 +1,59 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const OpenAI = require('openai');
 const logger = require('../utils/logger');
+const { generateTextWithBedrock } = require('./bedrockClient');
 
-// Initialize AI clients
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const TEXT_PROVIDER = (process.env.AI_TEXT_PROVIDER || '').toLowerCase() || (process.env.BEDROCK_MODEL_ID ? 'bedrock' : 'gemini');
+const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+
+// const extractJSON = (text) => {
+//   if (!text) throw new Error('Empty response');
+
+//   const match = text.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+
+//   if (!match) {
+//     throw new Error('No JSON found in response');
+//   }
+
+//   return JSON.parse(match[0]);
+// };
+
+
+const generateText = async ({ system = '', prompt, temperature = 0.7, maxTokens = 1024 }) => {
+  if (!prompt) {
+    throw new Error('Prompt is required');
+  }
+
+  if (TEXT_PROVIDER === 'bedrock') {
+    const { text } = await generateTextWithBedrock({
+      system,
+      prompt,
+      temperature,
+      maxTokens,
+    });
+    return text;
+  }
+
+  if (!genAI) {
+    throw new Error('GEMINI_API_KEY is not set, and AI_TEXT_PROVIDER is not "bedrock"');
+  }
+
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const result = await model.generateContent({
+    contents: [
+      { role: 'user', parts: [{ text: system || '' }] },
+      { role: 'user', parts: [{ text: prompt }] },
+    ],
+    generationConfig: {
+      temperature,
+      maxOutputTokens: maxTokens,
+    },
+  });
+
+  return result.response.text();
+};
 
 class AIService {
-  // Content Generation with Gemini
+  // Content Generation
   async generateContent(options) {
     const {
       prompt,
@@ -22,8 +68,6 @@ class AIService {
     } = options;
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
       const lengthMap = {
         short: '150-300 words',
         medium: '400-600 words',
@@ -39,28 +83,21 @@ class AIService {
         email: 'Personalized, clear subject line, strong call-to-action.',
       };
 
-      const systemPrompt = `You are an expert content creator specializing in ${type} content for ${platform}. 
-Create content in a ${tone} tone for a ${audience} audience.
-Length: ${lengthMap[length]}
-${platformGuidelines[platform] || ''}
-${keywords.length > 0 ? `Include these keywords naturally: ${keywords.join(', ')}` : ''}
-${includeHashtags ? 'Include relevant hashtags at the end.' : ''}
+      const systemPrompt = `You are an expert content creator specializing in ${type} content for ${platform}.\n` +
+        `Create content in a ${tone} tone for a ${audience} audience.\n` +
+        `Language: ${language}\n` +
+        `Length: ${lengthMap[length]}\n` +
+        `${platformGuidelines[platform] || ''}\n` +
+        `${keywords.length > 0 ? `Include these keywords naturally: ${keywords.join(', ')}` : ''}\n` +
+        `${includeHashtags ? 'Include relevant hashtags at the end.' : ''}\n\n` +
+        'Respond with ONLY the content, no explanations or meta-commentary.';
 
-Respond with ONLY the content, no explanations or meta-commentary.`;
-
-      const result = await model.generateContent({
-        contents: [
-          { role: 'user', parts: [{ text: systemPrompt }] },
-          { role: 'model', parts: [{ text: 'I understand. Please provide the topic or prompt.' }] },
-          { role: 'user', parts: [{ text: prompt }] },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: length === 'long' ? 2048 : length === 'medium' ? 1024 : 512,
-        },
+      const generatedContent = await generateText({
+        system: systemPrompt,
+        prompt,
+        temperature: 0.7,
+        maxTokens: length === 'long' ? 2048 : length === 'medium' ? 1024 : 512,
       });
-
-      const generatedContent = result.response.text();
 
       return {
         success: true,
@@ -115,8 +152,6 @@ Respond with ONLY the content, no explanations or meta-commentary.`;
     } = options;
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
       const improvementInstructions = improvements.map(imp => {
         switch (imp) {
           case 'grammar': return 'Fix grammar and spelling errors';
@@ -140,11 +175,15 @@ ${addHashtags ? 'Add relevant hashtags.' : ''}
 
 Respond with ONLY the improved content.`;
 
-      const result = await model.generateContent(prompt);
+      const improved = await generateText({
+        prompt,
+        temperature: 0.5,
+        maxTokens: 1024,
+      });
 
       return {
         success: true,
-        content: result.response.text(),
+        content: improved,
         improvements: improvementInstructions,
       };
     } catch (error) {
@@ -165,19 +204,21 @@ Respond with ONLY the improved content.`;
     };
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
       const prompt = `Summarize the following content in ${lengthMap[length]}:
 
 ${content}
 
 Respond with ONLY the summary.`;
 
-      const result = await model.generateContent(prompt);
+      const summary = await generateText({
+        prompt,
+        temperature: 0.3,
+        maxTokens: length === 'long' ? 700 : length === 'medium' ? 400 : 200,
+      });
 
       return {
         success: true,
-        summary: result.response.text(),
+        summary,
         originalLength: content.length,
       };
     } catch (error) {
@@ -192,8 +233,6 @@ Respond with ONLY the summary.`;
   // Generate hashtags
   async generateHashtags(content, count = 10, platform = 'instagram') {
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
       const platformGuidelines = {
         twitter: '3-5 hashtags, trending and relevant',
         instagram: '10-15 hashtags, mix of popular and niche',
@@ -211,8 +250,13 @@ Guidelines: ${platformGuidelines[platform]}
 
 Respond with ONLY the hashtags, one per line, including the # symbol.`;
 
-      const result = await model.generateContent(prompt);
-      const hashtags = result.response.text()
+      const raw = await generateText({
+        prompt,
+        temperature: 0.6,
+        maxTokens: 300,
+      });
+
+      const hashtags = raw
         .split('\n')
         .map(h => h.trim())
         .filter(h => h.startsWith('#'));
@@ -234,8 +278,6 @@ Respond with ONLY the hashtags, one per line, including the # symbol.`;
   // Generate SEO suggestions
   async generateSEO(content, title = '', keywords = []) {
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
       const prompt = `Analyze and provide SEO suggestions for this content:
 
 Title: ${title}
@@ -251,8 +293,11 @@ Provide:
 
 Respond in JSON format.`;
 
-      const result = await model.generateContent(prompt);
-      const response = result.response.text();
+      const response = await generateText({
+        prompt,
+        temperature: 0.3,
+        maxTokens: 1200,
+      });
 
       // Try to parse JSON, fallback to text
       let seoData;
@@ -289,19 +334,21 @@ Respond in JSON format.`;
     };
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
       const prompt = `Transform the following content to have a ${targetTone} tone (${toneDescriptions[targetTone]}):
 
 ${content}
 
 Respond with ONLY the transformed content.`;
 
-      const result = await model.generateContent(prompt);
+      const transformed = await generateText({
+        prompt,
+        temperature: 0.6,
+        maxTokens: 1024,
+      });
 
       return {
         success: true,
-        content: result.response.text(),
+        content: transformed,
         originalTone: 'detected',
         targetTone,
       };
@@ -317,19 +364,21 @@ Respond with ONLY the transformed content.`;
   // Translate content
   async translate(content, targetLanguage, sourceLanguage = 'en') {
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
       const prompt = `Translate the following content from ${sourceLanguage} to ${targetLanguage}:
 
 ${content}
 
 Maintain the tone, style, and formatting. Respond with ONLY the translated content.`;
 
-      const result = await model.generateContent(prompt);
+      const translation = await generateText({
+        prompt,
+        temperature: 0.2,
+        maxTokens: 1400,
+      });
 
       return {
         success: true,
-        translation: result.response.text(),
+        translation,
         sourceLanguage,
         targetLanguage,
       };
@@ -354,8 +403,6 @@ Maintain the tone, style, and formatting. Respond with ONLY the translated conte
     };
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
       const prompt = `Repurpose this ${sourcePlatform} content for ${targetPlatform}:
 
 Original Content:
@@ -367,11 +414,15 @@ ${options.includeHashtags ? 'Include relevant hashtags.' : ''}
 
 Respond with ONLY the repurposed content.`;
 
-      const result = await model.generateContent(prompt);
+      const repurposed = await generateText({
+        prompt,
+        temperature: 0.7,
+        maxTokens: 1400,
+      });
 
       return {
         success: true,
-        content: result.response.text(),
+        content: repurposed,
         sourcePlatform,
         targetPlatform,
       };
@@ -387,8 +438,6 @@ Respond with ONLY the repurposed content.`;
   // Check grammar and readability
   async checkGrammar(content) {
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
       const prompt = `Analyze this content for grammar, spelling, and readability:
 
 ${content}
@@ -401,8 +450,11 @@ Provide:
 
 Respond in JSON format.`;
 
-      const result = await model.generateContent(prompt);
-      const response = result.response.text();
+      const response = await generateText({
+        prompt,
+        temperature: 0.2,
+        maxTokens: 1200,
+      });
 
       let analysis;
       try {
@@ -427,8 +479,6 @@ Respond in JSON format.`;
   // Generate content ideas
   async generateIdeas(topic, count = 5, platform = 'blog') {
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
       const prompt = `Generate ${count} content ideas about "${topic}" for ${platform}.
 
 For each idea, provide:
@@ -440,8 +490,11 @@ For each idea, provide:
 
 Respond in JSON format as an array of ideas.`;
 
-      const result = await model.generateContent(prompt);
-      const response = result.response.text();
+      const response = await generateText({
+        prompt,
+        temperature: 0.8,
+        maxTokens: 1200,
+      });
 
       let ideas;
       try {

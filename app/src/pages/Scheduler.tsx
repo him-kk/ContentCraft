@@ -9,7 +9,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Filter,
   Instagram,
   Twitter,
   Linkedin,

@@ -89,7 +89,7 @@ router.post('/generate', protect, async (req, res, next) => {
       tone: req.body.tone || 'professional',
       aiGenerated: true,
       aiPrompt: req.body.prompt,
-      aiModel: 'gemini-pro',
+      aiModel: 'gemini-2.0-flash',
     });
 
     res.status(201).json({

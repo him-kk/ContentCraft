@@ -232,7 +232,7 @@ export default function LandingPage() {
               className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100 rounded-full mb-8"
             >
               <Sparkles className="w-4 h-4 text-purple-600" />
-              <span className="text-sm font-medium text-purple-700">Powered by Gemini & DALL-E 3</span>
+              <span className="text-sm font-medium text-purple-700">Powered by Meta Llama-3 & Amazon Titan</span>
             </motion.div>
             
             {/* Headline */}
@@ -432,21 +432,21 @@ export default function LandingPage() {
             >
               <span className="inline-flex items-center gap-2 px-4 py-2 bg-purple-100 rounded-full text-sm font-medium text-purple-700 mb-6">
                 <Brain className="w-4 h-4" />
-                Powered by Gemini & DALL-E 3
+                Powered by Amazon Titan & Llama 3 8b instruct
               </span>
               <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-6">
                 State-of-the-art AI for content creation
               </h2>
               <p className="text-lg text-gray-600 mb-8">
-                Leverage the power of Google's Gemini for intelligent content generation 
-                and OpenAI's DALL-E 3 for stunning visuals.
+                Leverage the power of Amazon Titan for intelligent content generation 
+                and Llama 3 8b instruct for advanced language understanding.
               </p>
               <div className="space-y-4">
                 {[
                   'Natural language content generation',
                   'Multi-tone transformation',
                   'SEO optimization suggestions',
-                  'Image generation with DALL-E 3',
+                  'Image generation with Amazon Titan',
                   'Real-time translation',
                 ].map((item, index) => (
                   <div key={index} className="flex items-center gap-3">
@@ -735,7 +735,7 @@ export default function LandingPage() {
           </div>
           <div className="pt-8 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-gray-500">
-              © 2025 ContentCraft AI. All rights reserved.
+              © 2025 ContentCraft-AI. All rights reserved.
             </p>
             <div className="flex items-center gap-4">
               <a href="#" className="text-gray-400 hover:text-white transition-colors">
